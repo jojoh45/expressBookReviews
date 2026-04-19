@@ -24,7 +24,7 @@ app.use("/customer/auth/*", function auth(req,res,next){
             }
         }) 
     } else {
-            return res.status(403).json({ message: "Please long in" });
+            return res.status(403).json({ message: "Please log in" });
     }
 });
  
