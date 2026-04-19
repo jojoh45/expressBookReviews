@@ -11,11 +11,7 @@ const doesExist = (username) => {
     let userswithsamename = users.filter((user) => {
         return user.username === username;
     });
-    if (userswithsamename.length > 0) {
-        return true;
-    } else {
-        return false;
-    }
+    return userswithsamename.length > 0;
 }
 
 public_users.post("/register", (req, res) => {
@@ -39,12 +35,17 @@ public_users.get('/', async (req, res) => {
         const response = await axios.get(`${BASE_URL}/`);
 
         if (!response.data || Object.keys(response.data).length === 0) {
-            return res.status(404).json({ message: "No books found in the shop" });
+            return res.status(404).json({ 
+                message: "No books are currently available in the shop. Please try again later." 
+            });
         }
 
         return res.status(200).json(response.data);
     } catch (error) {
-        return res.status(500).json({ message: "Error fetching books", error: error.message });
+        return res.status(500).json({ 
+            message: "Unable to retrieve the book list. Please try again later.",
+            details: error.message 
+        });
     }
 });
 
@@ -55,12 +56,17 @@ public_users.get('/isbn/:isbn', async (req, res) => {
         const response = await axios.get(`${BASE_URL}/isbn/${isbn}`);
 
         if (!response.data) {
-            return res.status(404).json({ message: `No book found for ISBN: ${isbn}` });
+            return res.status(404).json({ 
+                message: `No book was found with ISBN: ${isbn}. Please check the ISBN and try again.` 
+            });
         }
 
         return res.status(200).json(response.data);
     } catch (error) {
-        return res.status(404).json({ message: `No book found for ISBN: ${isbn}`, error: error.message });
+        return res.status(404).json({ 
+            message: `No book was found with ISBN: ${isbn}. Please verify the ISBN is correct.`,
+            details: error.message 
+        });
     }
 });
 
@@ -70,14 +76,18 @@ public_users.get('/author/:author', async (req, res) => {
     try {
         const response = await axios.get(`${BASE_URL}/author/${encodeURIComponent(author)}`);
 
-        // Check if the response is empty or not an array
         if (!response.data || (Array.isArray(response.data) && response.data.length === 0)) {
-            return res.status(404).json({ message: `No books found for author: ${author}` });
+            return res.status(404).json({ 
+                message: `No books were found for author: "${author}". Please check the author's name and try again.` 
+            });
         }
 
         return res.status(200).json(response.data);
     } catch (error) {
-        return res.status(404).json({ message: `No books found for author: ${author}`, error: error.message });
+        return res.status(404).json({ 
+            message: `No books were found for author: "${author}". Please ensure the author's name is spelled correctly.`,
+            details: error.message 
+        });
     }
 });
 
@@ -88,12 +98,17 @@ public_users.get('/title/:title', async (req, res) => {
         const response = await axios.get(`${BASE_URL}/title/${encodeURIComponent(title)}`);
 
         if (!response.data || (Array.isArray(response.data) && response.data.length === 0)) {
-            return res.status(404).json({ message: `No books found for title: ${title}` });
+            return res.status(404).json({ 
+                message: `No books were found with the title: "${title}". Please check the title and try again.` 
+            });
         }
 
         return res.status(200).json(response.data);
     } catch (error) {
-        return res.status(404).json({ message: `No books found for title: ${title}`, error: error.message });
+        return res.status(404).json({ 
+            message: `No books were found with the title: "${title}". Please ensure the title is spelled correctly.`,
+            details: error.message 
+        });
     }
 });
 
@@ -104,12 +119,17 @@ public_users.get('/review/:isbn', async (req, res) => {
         const response = await axios.get(`${BASE_URL}/review/${isbn}`);
 
         if (!response.data || Object.keys(response.data).length === 0) {
-            return res.status(404).json({ message: `No reviews found for ISBN: ${isbn}` });
+            return res.status(404).json({ 
+                message: `No reviews have been submitted yet for ISBN: ${isbn}.` 
+            });
         }
 
         return res.status(200).json(response.data);
     } catch (error) {
-        return res.status(404).json({ message: `No reviews found for ISBN: ${isbn}`, error: error.message });
+        return res.status(404).json({ 
+            message: `Unable to retrieve reviews for ISBN: ${isbn}. Please verify the ISBN is correct.`,
+            details: error.message 
+        });
     }
 });
 
