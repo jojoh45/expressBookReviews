@@ -22,13 +22,13 @@ app.use("/customer/auth/*", function auth(req,res,next){
             } else {
                 return res.status(403).json( {message: "User not authenticated"})
             }
-        }) else {
+        }) 
+    } else {
             return res.status(403).json({ message: "Please long in" });
-        }
     }
 });
  
-const PORT =5000;
+const PORT =1500;
 
 app.use("/customer", customer_routes);
 app.use("/", genl_routes);
