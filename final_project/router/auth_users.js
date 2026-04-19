@@ -1,105 +1,138 @@
 const express = require('express');
-const jwt = require('jsonwebtoken');
+const axios = require('axios');
 let books = require("./booksdb.js");
-const regd_users = express.Router();
+let isValid = require("./auth_users.js").isValid;
+let users = require("./auth_users.js").users;
+const public_users = express.Router();
 
-const app = express(); 
-app.use("/customer", regd_users);
+const BASE_URL = "http://localhost:1500";
 
-let users = [];
-
-const isValid = (username)=>{ //returns boolean
-//write code to check is the username is valid
-}
-
-// Check if the user with the given username and password exists
-const authenticatedUser = (username, password) => {
-    // Filter the users array for any user with the same username and password
-    let validusers = users.filter((user) => {
-        return (user.username === username && user.password === password);
+const doesExist = (username) => {
+    let userswithsamename = users.filter((user) => {
+        return user.username === username;
     });
-    // Return true if any valid user is found, otherwise false
-    if (validusers.length > 0) {
-        return true;
-    } else {
-        return false;
-    }
+    return userswithsamename.length > 0;
 }
 
-//only registered users can login
-regd_users.post("/login", (req, res) => {
+public_users.post("/register", (req, res) => {
     const username = req.body.username;
     const password = req.body.password;
 
-    // Check if username or password is missing
-    if (!username || !password) {
-        return res.status(404).json({ message: "Error logging in" });
-    }
-
-    // Authenticate user
-    if (authenticatedUser(username, password)) {
-        // Generate JWT access token
-        let accessToken = jwt.sign({
-            data: password
-        }, 'access', { expiresIn: 60 * 60 });
-
-        // Store access token and username in session
-        req.session.authorization = {
-            accessToken, username
+    if (username && password) {
+        if (!doesExist(username)) {
+            users.push({ "username": username, "password": password });
+            return res.status(200).json({ message: `${username} successfully registered. Now you can login` });
+        } else {
+            return res.status(404).json({ message: `${username} already exists!` });
         }
-        return res.status(200).send("User successfully logged in");
-    } else {
-        return res.status(208).json({ message: "Invalid Login. Check username and password" });
+    }
+    return res.status(404).json({ message: `Unable to register ${username}` });
+});
+
+// ---- Internal data routes (Axios calls these) ----
+
+public_users.get('/data/books', (req, res) => {
+    return res.status(200).json(books);
+});
+
+public_users.get('/data/books/:isbn', (req, res) => {
+    const book = books[req.params.isbn];
+    if (book) return res.status(200).json(book);
+    return res.status(404).json({ message: "Book not found" });
+});
+
+public_users.get('/data/books/author/:author', (req, res) => {
+    const result = Object.values(books).filter(book => book.author === req.params.author);
+    if (result.length > 0) return res.status(200).json(result);
+    return res.status(404).json({ message: "No books found for this author" });
+});
+
+public_users.get('/data/books/title/:title', (req, res) => {
+    const result = Object.values(books).filter(book => book.title === req.params.title);
+    if (result.length > 0) return res.status(200).json(result);
+    return res.status(404).json({ message: "No books found for this title" });
+});
+
+public_users.get('/data/books/:isbn/reviews', (req, res) => {
+    const book = books[req.params.isbn];
+    if (book && book.reviews && Object.keys(book.reviews).length > 0) {
+        return res.status(200).json(book.reviews);
+    }
+    return res.status(404).json({ message: "No reviews found" });
+});
+
+// ---- Public routes using Axios ----
+
+// Get all books (Axios + async-await)
+public_users.get('/', async (req, res) => {
+    try {
+        const response = await axios.get(`${BASE_URL}/data/books`);
+        if (!response.data || Object.keys(response.data).length === 0) {
+            return res.status(404).json({ message: "No books are currently available in the shop." });
+        }
+        return res.status(200).json(response.data);
+    } catch (error) {
+        return res.status(500).json({
+            message: "Unable to retrieve the book list. Please try again later.",
+            details: error.message
+        });
     }
 });
 
-regd_users.put("/auth/review/:isbn", (req, res) => {
+// Get book by ISBN (Axios + async-await)
+public_users.get('/isbn/:isbn', async (req, res) => {
     const isbn = req.params.isbn;
-    const review = req.query.review;
-    const username = req.session.authorization.username;
-
-    if (!review) {
-        return res.status(400).json({ message: "Review is required" });
+    try {
+        const response = await axios.get(`${BASE_URL}/data/books/${isbn}`);
+        return res.status(200).json(response.data);
+    } catch (error) {
+        return res.status(404).json({
+            message: `No book was found with ISBN: ${isbn}. Please verify the ISBN is correct.`,
+            details: error.message
+        });
     }
-
-    if (!books[isbn]) {
-        return res.status(404).json({ message: "Book not found" });
-    }
-
-    // If no reviews exist for this ISBN yet, initialize it
-    if (!books[isbn].reviews) {
-        books[isbn].reviews = {};
-    }
-
-    // Add or modify the review using username as the key
-    books[isbn].reviews[username] = review;
-
-    return res.status(200).json({ message: `Review for ISBN ${isbn} has been added/updated by ${username}`, reviews: books[isbn].reviews });
 });
 
-regd_users.delete("/auth/review/:isbn", (req, res) => {
+// Get books by author (Axios + async-await)
+public_users.get('/author/:author', async (req, res) => {
+    const author = req.params.author;
+    try {
+        const response = await axios.get(`${BASE_URL}/data/books/author/${encodeURIComponent(author)}`);
+        return res.status(200).json(response.data);
+    } catch (error) {
+        return res.status(404).json({
+            message: `No books were found for author: "${author}". Please ensure the author's name is spelled correctly.`,
+            details: error.message
+        });
+    }
+});
+
+// Get books by title (Axios + async-await)
+public_users.get('/title/:title', async (req, res) => {
+    const title = req.params.title;
+    try {
+        const response = await axios.get(`${BASE_URL}/data/books/title/${encodeURIComponent(title)}`);
+        return res.status(200).json(response.data);
+    } catch (error) {
+        return res.status(404).json({
+            message: `No books were found with the title: "${title}". Please ensure the title is spelled correctly.`,
+            details: error.message
+        });
+    }
+});
+
+// Get book reviews (Axios + async-await)
+public_users.get('/review/:isbn', async (req, res) => {
     const isbn = req.params.isbn;
-    const username = req.session.authorization.username;
-
-    if (!books[isbn]) {
-        return res.status(404).json({ message: "Book not found" });
+    try {
+        const response = await axios.get(`${BASE_URL}/data/books/${isbn}/reviews`);
+        return res.status(200).json(response.data);
+    } catch (error) {
+        return res.status(404).json({
+            message: `No reviews found for ISBN: ${isbn}. Please verify the ISBN is correct.`,
+            details: error.message
+        });
     }
-
-    if (!books[isbn].reviews || !books[isbn].reviews[username]) {
-        return res.status(404).json({ message: "No review found for this user" });
-    }
-
-    // Only delete the logged-in user's review
-    delete books[isbn].reviews[username];
-
-    return res.status(200).json({ message: `Review for ISBN ${isbn} by ${username} has been deleted.` });
 });
 
-
-
-
-
-
-module.exports.authenticated = regd_users;
-module.exports.isValid = isValid;
-module.exports.users = users;
+module.exports.general = public_users;
